@@ -7,7 +7,7 @@
 #include <Adafruit_ADS1015.h>
 
 #define ledinbuilt 02
-#define VERSION 1.0.1
+#define VERSION "1.0.1"
 
 Adafruit_ADS1115 ads;
 //const float multiplier = 0.1875F;
@@ -69,7 +69,10 @@ void setup() {
 
   
   Serial.begin(115200);
-  Serial.println("\r\nBooting...");
+  Serial.println("Home Energy Monitor - by Alejandro Estrade");
+  Serial.print("Versión ");
+  Serial.println(VERSION);
+  Serial.println("\r\n\nBooting...");
 
   pinMode(ledinbuilt, OUTPUT);     // Initialize the BUILTIN_LED pin as an output
   
@@ -182,9 +185,9 @@ void loop() {
   }
  
   maxRaw = maxRaw > -minRaw ? maxRaw : -minRaw;
-  float voltagePeak = maxRaw * multiplier / 1000;
+  float voltagePeak = maxRaw * multiplier;
   float voltageRMS = voltagePeak * 0.70710678118;
-  float currentRMS = voltageRMS * FACTOR;
+  float currentRMS = voltageRMS * FACTOR / 1000;
 
   // public MQTT
   now = millis();
@@ -195,8 +198,9 @@ void loop() {
     //voltage = ads.readADC_Differential_0_1() * multiplier;
     //current = voltage * FACTOR / 1000.0;
     power = currentRMS * 230.0;
-    
-    Serial.print("Sent ");
+
+    Serial.printf("maxRaw = %d    minRaw = %d", maxRaw, minRaw);
+    Serial.print("\r\nSent ");
     Serial.print(String(power).c_str());
     Serial.println(" to "+mqtt_base_topic+power_topic);
     Serial.print("Sent ");
