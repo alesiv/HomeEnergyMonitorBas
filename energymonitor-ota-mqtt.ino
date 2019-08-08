@@ -7,7 +7,7 @@
 #include <Adafruit_ADS1015.h>
 
 #define ledinbuilt 02
-#define VERSION "1.0.1"
+#define VERSION "1.0.3"
 
 Adafruit_ADS1115 ads;
 //const float multiplier = 0.1875F;
@@ -30,7 +30,9 @@ String mqtt_base_topic="/energymon/data";
 #define power_topic "/power"
 #define led_topic "/led"
 #define online_topic "/online"
-#define version_topic "version"
+#define version_topic "/version"
+#define debug_topic "/debug"
+#define getVersion_topic "/getversion"
 
 //MQTT client
 WiFiClient espClient;
@@ -38,6 +40,10 @@ PubSubClient mqtt_client(espClient);
 
 //Necesary to make Arduino Software autodetect OTA device
 WiFiServer TelnetServer(8266);
+
+// Debug variables
+int dbgCall;
+String dbgMsg;
 
 void setup_adc() 
 {
@@ -119,7 +125,8 @@ void mqtt_reconnect() {
     // if (client.connect("ESP8266Client")) {    
     if (mqtt_client.connect(mqtt_client_id.c_str(), mqtt_user, mqtt_password)) {
       Serial.println("connected");
-      mqtt_client.subscribe((mqtt_base_topic+led_topic).c_str());
+      mqtt_client.subscribe((mqtt_base_topic + led_topic).c_str());
+      mqtt_client.subscribe((mqtt_base_topic + getVersion_topic).c_str());
     } 
     else {
       Serial.print("failed, rc=");
@@ -139,18 +146,27 @@ void callback(char* topic, byte* payload, unsigned int length) {
     Serial.print((char)payload[i]);
   }
   Serial.println();
- 
+  
   // Switch on the LED if an 1 was received as first character
-    if ((char)payload[0] == '1') {
+  if (String(topic) ==  (mqtt_base_topic + led_topic).c_str()) {
+    if ((char) payload[0] == '1') {
       digitalWrite(ledinbuilt, LOW);   // Turn the LED on (Note that LOW is the voltage level
       // but actually the LED is on; this is because
       // it is acive low on the ESP-01)
     } else {
       digitalWrite(ledinbuilt, HIGH);  // Turn the LED off by making the voltage HIGH
     }
+  }
   
-  
+  // Return version topic
+  if (String(topic) ==  (mqtt_base_topic + getVersion_topic).c_str()) {
+    if ((char) payload[0] == 'V') {
+      mqtt_client.publish((mqtt_base_topic + version_topic).c_str(), VERSION, true);
+    }
+  }
 }
+
+// Global variables
 
 long now = 0; //in ms
 long lastMsg = 0;
@@ -158,6 +174,8 @@ float voltagePeak = 0.0;
 float currentRMS = 0.0;
 float power = 0.0;
 int min_timeout=2000; //in ms
+
+
 
 void loop() {
   //int16_t adc0[1000]; //, adc1, adc2, adc3;
@@ -209,11 +227,14 @@ void loop() {
     mqtt_client.publish((mqtt_base_topic+voltage_topic).c_str(), String(voltagePeak).c_str(), true);
     mqtt_client.publish((mqtt_base_topic+current_topic).c_str(), String(currentRMS).c_str(), true);
     mqtt_client.publish((mqtt_base_topic+power_topic).c_str(), String(power).c_str(), true);
-    mqtt_client.publish((mqtt_base_topic+online_topic).c_str(), "Online", true);
+    mqtt_client.publish((mqtt_base_topic+online_topic).c_str(), "Testing", true);
     
     
   }
 
-  
+  if (dbgCall) {
+    mqtt_client.publish((mqtt_base_topic + debug_topic).c_str(), dbgMsg.c_str(), true);
+    dbgCall = 0;
+  }
   
 }
