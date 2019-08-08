@@ -19,7 +19,7 @@ const float FACTOR = 30; //30A/1V
 #define wifi_password "osterreich"
 
 //MQTT configuration
-#define mqtt_server "192.168.2.100"
+#define mqtt_server "192.168.1.100"
 #define mqtt_user "esp8266"
 #define mqtt_password "esp8266password"
 String mqtt_client_id="AEM-";
