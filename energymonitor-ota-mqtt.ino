@@ -7,9 +7,10 @@
 #include <Adafruit_ADS1015.h>
 
 #define ledinbuilt 02
-#define VERSION "1.0.3"
+#define VERSION "1.1.0"
 
-Adafruit_ADS1115 ads;
+Adafruit_ADS1115 ads1(0x48);
+Adafruit_ADS1115 ads2(0x49);
 //const float multiplier = 0.1875F;
 const float multiplier = 0.0625F;
 const float FACTOR = 30; //30A/1V
@@ -25,9 +26,15 @@ const float FACTOR = 30; //30A/1V
 String mqtt_client_id="AEM-";
 //MQTT Topic configuration
 String mqtt_base_topic="/energymon/data";
-#define voltage_topic "/voltage"
-#define current_topic "/current"
-#define power_topic "/power"
+#define voltageC1_topic "/voltageC1"
+#define voltageC2_topic "/voltageC2"
+#define voltageC3_topic "/voltageC3"
+#define currentC1_topic "/currentC1"
+#define currentC2_topic "/currentC2"
+#define currentC3_topic "/currentC3"
+#define powerC1_topic "/powerC1"
+#define powerC2_topic "/powerC2"
+#define powerC3_topic "/powerC3"
 #define led_topic "/led"
 #define online_topic "/online"
 #define version_topic "/version"
@@ -50,11 +57,13 @@ void setup_adc()
   // Descomentar el que interese
   // ads.setGain(GAIN_TWOTHIRDS);  // +/- 6.144V  1 bit = 0.1875mV (default)
   // ads.setGain(GAIN_ONE);        +/- 4.096V  1 bit = 0.125mV
-  ads.setGain(GAIN_TWO);        // +/- 2.048V  1 bit = 0.0625mV
+  ads1.setGain(GAIN_TWO);        // +/- 2.048V  1 bit = 0.0625mV
+  ads2.setGain(GAIN_TWO);
   // ads.setGain(GAIN_FOUR);       +/- 1.024V  1 bit = 0.03125mV
   // ads.setGain(GAIN_EIGHT);      +/- 0.512V  1 bit = 0.015625mV
   // ads.setGain(GAIN_SIXTEEN);    +/- 0.256V  1 bit = 0.0078125mV 
-  ads.begin();
+  ads1.begin();
+  ads2.begin();
 }
 
 void setup_wifi() {
@@ -170,11 +179,15 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 long now = 0; //in ms
 long lastMsg = 0;
-float voltagePeak = 0.0;
-float currentRMS = 0.0;
-float power = 0.0;
+float voltagePeak[3];
+float voltageRMS[3];
+float currentRMS[3];
+float power[3];
 int min_timeout=2000; //in ms
-
+long tiempo;
+long rawAdc;
+long minRaw;
+long maxRaw;
 
 
 void loop() {
@@ -190,22 +203,59 @@ void loop() {
   }
   mqtt_client.loop();
 
-  // ADC adquisition
-  long tiempo = millis();
-  long rawAdc = ads.readADC_Differential_0_1();
-  long minRaw = rawAdc;
-  long maxRaw = rawAdc;
+  // ADC adquisition Channel 1
+  tiempo = millis();
+  rawAdc = ads1.readADC_Differential_0_1();
+  minRaw = rawAdc;
+  maxRaw = rawAdc;
   while (millis() - tiempo < 1000)
   {
-    rawAdc = ads.readADC_Differential_0_1();
+    rawAdc = ads1.readADC_Differential_0_1();
     maxRaw = maxRaw > rawAdc ? maxRaw : rawAdc;
     minRaw = minRaw < rawAdc ? minRaw : rawAdc;
   }
  
   maxRaw = maxRaw > -minRaw ? maxRaw : -minRaw;
-  float voltagePeak = maxRaw * multiplier;
-  float voltageRMS = voltagePeak * 0.70710678118;
-  float currentRMS = voltageRMS * FACTOR / 1000;
+  voltagePeak[0] = maxRaw * multiplier;
+  voltageRMS[0] = voltagePeak[0] * 0.70710678118;
+  currentRMS[0] = voltageRMS[0] * FACTOR / 1000;
+  power[0] = currentRMS[0] * 230.0;
+
+  // ADC adquisition Channel 2
+  tiempo = millis();
+  rawAdc = ads1.readADC_Differential_2_3();
+  minRaw = rawAdc;
+  maxRaw = rawAdc;
+  while (millis() - tiempo < 1000)
+  {
+    rawAdc = ads1.readADC_Differential_2_3();
+    maxRaw = maxRaw > rawAdc ? maxRaw : rawAdc;
+    minRaw = minRaw < rawAdc ? minRaw : rawAdc;
+  }
+ 
+  maxRaw = maxRaw > -minRaw ? maxRaw : -minRaw;
+  voltagePeak[1] = maxRaw * multiplier;
+  voltageRMS[1] = voltagePeak[1] * 0.70710678118;
+  currentRMS[1] = voltageRMS[1] * FACTOR / 1000;
+  power[1] = currentRMS[1] * 230.0;
+
+  // ADC adquisition Channel 3
+  tiempo = millis();
+  rawAdc = ads2.readADC_Differential_0_1();
+  minRaw = rawAdc;
+  maxRaw = rawAdc;
+  while (millis() - tiempo < 1000)
+  {
+    rawAdc = ads2.readADC_Differential_0_1();
+    maxRaw = maxRaw > rawAdc ? maxRaw : rawAdc;
+    minRaw = minRaw < rawAdc ? minRaw : rawAdc;
+  }
+ 
+  maxRaw = maxRaw > -minRaw ? maxRaw : -minRaw;
+  voltagePeak[2] = maxRaw * multiplier;
+  voltageRMS[2] = voltagePeak[2] * 0.70710678118;
+  currentRMS[2] = voltageRMS[2] * FACTOR / 1000;
+  power[2] = currentRMS[2] * 230.0;
 
   // public MQTT
   now = millis();
@@ -215,18 +265,29 @@ void loop() {
     
     //voltage = ads.readADC_Differential_0_1() * multiplier;
     //current = voltage * FACTOR / 1000.0;
-    power = currentRMS * 230.0;
+    //power = currentRMS * 230.0;
 
-    Serial.printf("maxRaw = %d    minRaw = %d", maxRaw, minRaw);
+    /*Serial.printf("maxRaw = %d    minRaw = %d", maxRaw, minRaw);
     Serial.print("\r\nSent ");
     Serial.print(String(power).c_str());
     Serial.println(" to "+mqtt_base_topic+power_topic);
     Serial.print("Sent ");
     Serial.print(String(currentRMS).c_str());
-    Serial.println(" to "+mqtt_base_topic+current_topic);
-    mqtt_client.publish((mqtt_base_topic+voltage_topic).c_str(), String(voltagePeak).c_str(), true);
-    mqtt_client.publish((mqtt_base_topic+current_topic).c_str(), String(currentRMS).c_str(), true);
-    mqtt_client.publish((mqtt_base_topic+power_topic).c_str(), String(power).c_str(), true);
+    Serial.println(" to "+mqtt_base_topic+current_topic);*/
+
+    // Channel 1
+    mqtt_client.publish((mqtt_base_topic+voltageC1_topic).c_str(), String(voltagePeak[0]).c_str(), true);
+    mqtt_client.publish((mqtt_base_topic+currentC1_topic).c_str(), String(currentRMS[0]).c_str(), true);
+    mqtt_client.publish((mqtt_base_topic+powerC1_topic).c_str(), String(power[0]).c_str(), true);
+    // Channel 2
+    mqtt_client.publish((mqtt_base_topic+voltageC2_topic).c_str(), String(voltagePeak[1]).c_str(), true);
+    mqtt_client.publish((mqtt_base_topic+currentC2_topic).c_str(), String(currentRMS[1]).c_str(), true);
+    mqtt_client.publish((mqtt_base_topic+powerC2_topic).c_str(), String(power[1]).c_str(), true);
+    // Channel 3
+    mqtt_client.publish((mqtt_base_topic+voltageC3_topic).c_str(), String(voltagePeak[2]).c_str(), true);
+    mqtt_client.publish((mqtt_base_topic+currentC3_topic).c_str(), String(currentRMS[2]).c_str(), true);
+    mqtt_client.publish((mqtt_base_topic+powerC3_topic).c_str(), String(power[2]).c_str(), true);
+    
     mqtt_client.publish((mqtt_base_topic+online_topic).c_str(), "Testing", true);
     
     
