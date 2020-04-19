@@ -7,7 +7,7 @@
 #include <Adafruit_ADS1015.h>
 
 #define ledinbuilt 02
-#define VERSION "1.1.0"
+#define VERSION "1.1.4"
 
 Adafruit_ADS1115 ads1(0x48);
 Adafruit_ADS1115 ads2(0x49);
@@ -35,6 +35,11 @@ String mqtt_base_topic="/energymon/data";
 #define powerC1_topic "/powerC1"
 #define powerC2_topic "/powerC2"
 #define powerC3_topic "/powerC3"
+#define rawmaxC1_topic "/rawmaxC1"
+#define rawmaxC2_topic "/rawmaxC2"
+#define rawmaxC3_topic "/rawmaxC3"
+#define aux1_topic "/aux1"
+#define aux2_topic "/aux2"
 #define led_topic "/led"
 #define online_topic "/online"
 #define version_topic "/version"
@@ -57,7 +62,7 @@ void setup_adc()
   // Descomentar el que interese
   // ads.setGain(GAIN_TWOTHIRDS);  // +/- 6.144V  1 bit = 0.1875mV (default)
   // ads.setGain(GAIN_ONE);        +/- 4.096V  1 bit = 0.125mV
-  ads1.setGain(GAIN_TWO);        // +/- 2.048V  1 bit = 0.0625mV
+  ads1.setGain(GAIN_TWO);        // +/- 2.048V  1 bit = 0.0625mV, 1.875mA
   ads2.setGain(GAIN_TWO);
   // ads.setGain(GAIN_FOUR);       +/- 1.024V  1 bit = 0.03125mV
   // ads.setGain(GAIN_EIGHT);      +/- 0.512V  1 bit = 0.015625mV
@@ -183,11 +188,14 @@ float voltagePeak[3];
 float voltageRMS[3];
 float currentRMS[3];
 float power[3];
-int min_timeout=2000; //in ms
+float rawmax[3];
+int min_timeout=5000; //in ms
 long tiempo;
 long rawAdc;
 long minRaw;
 long maxRaw;
+long aux1;
+long aux2;
 
 
 void loop() {
@@ -205,7 +213,9 @@ void loop() {
 
   // ADC adquisition Channel 1
   tiempo = millis();
+  aux1 = millis();
   rawAdc = ads1.readADC_Differential_0_1();
+  aux2 = millis();
   minRaw = rawAdc;
   maxRaw = rawAdc;
   while (millis() - tiempo < 1000)
@@ -216,10 +226,11 @@ void loop() {
   }
  
   maxRaw = maxRaw > -minRaw ? maxRaw : -minRaw;
-  voltagePeak[0] = maxRaw * multiplier;
-  voltageRMS[0] = voltagePeak[0] * 0.70710678118;
-  currentRMS[0] = voltageRMS[0] * FACTOR / 1000;
-  power[0] = currentRMS[0] * 230.0;
+  rawmax[0] = maxRaw;
+  voltagePeak[0] = maxRaw * multiplier;                 // Vp (mV)
+  voltageRMS[0] = voltagePeak[0] * 0.70710678118;       // Vrms (mV)
+  currentRMS[0] = voltageRMS[0] * FACTOR;               // Arms (mA)
+  power[0] = currentRMS[0] * 0.230;                     // Power (W)
 
   // ADC adquisition Channel 2
   tiempo = millis();
@@ -234,10 +245,11 @@ void loop() {
   }
  
   maxRaw = maxRaw > -minRaw ? maxRaw : -minRaw;
-  voltagePeak[1] = maxRaw * multiplier;
-  voltageRMS[1] = voltagePeak[1] * 0.70710678118;
-  currentRMS[1] = voltageRMS[1] * FACTOR / 1000;
-  power[1] = currentRMS[1] * 230.0;
+  rawmax[1] = maxRaw;
+  voltagePeak[1] = maxRaw * multiplier;                 // Vp (mV)
+  voltageRMS[1] = voltagePeak[1] * 0.70710678118;       // Vrms (mV)
+  currentRMS[1] = voltageRMS[1] * FACTOR;               // Arms (mA)
+  power[1] = currentRMS[1] * 0.230;                     // Power (W)
 
   // ADC adquisition Channel 3
   tiempo = millis();
@@ -252,10 +264,11 @@ void loop() {
   }
  
   maxRaw = maxRaw > -minRaw ? maxRaw : -minRaw;
-  voltagePeak[2] = maxRaw * multiplier;
-  voltageRMS[2] = voltagePeak[2] * 0.70710678118;
-  currentRMS[2] = voltageRMS[2] * FACTOR / 1000;
-  power[2] = currentRMS[2] * 230.0;
+  rawmax[2] = maxRaw;
+  voltagePeak[2] = maxRaw * multiplier;                 // Vp (mV)
+  voltageRMS[2] = voltagePeak[2] * 0.70710678118;       // Vrms (mV)
+  currentRMS[2] = voltageRMS[2] * FACTOR;               // Arms (mA)
+  power[2] = currentRMS[2] * 0.230;                     // Power (W)
 
   // public MQTT
   now = millis();
@@ -279,18 +292,23 @@ void loop() {
     mqtt_client.publish((mqtt_base_topic+voltageC1_topic).c_str(), String(voltagePeak[0]).c_str(), true);
     mqtt_client.publish((mqtt_base_topic+currentC1_topic).c_str(), String(currentRMS[0]).c_str(), true);
     mqtt_client.publish((mqtt_base_topic+powerC1_topic).c_str(), String(power[0]).c_str(), true);
+    mqtt_client.publish((mqtt_base_topic+rawmaxC1_topic).c_str(), String(rawmax[0]).c_str(), true);
     // Channel 2
     mqtt_client.publish((mqtt_base_topic+voltageC2_topic).c_str(), String(voltagePeak[1]).c_str(), true);
     mqtt_client.publish((mqtt_base_topic+currentC2_topic).c_str(), String(currentRMS[1]).c_str(), true);
     mqtt_client.publish((mqtt_base_topic+powerC2_topic).c_str(), String(power[1]).c_str(), true);
+    mqtt_client.publish((mqtt_base_topic+rawmaxC2_topic).c_str(), String(rawmax[1]).c_str(), true);
     // Channel 3
     mqtt_client.publish((mqtt_base_topic+voltageC3_topic).c_str(), String(voltagePeak[2]).c_str(), true);
     mqtt_client.publish((mqtt_base_topic+currentC3_topic).c_str(), String(currentRMS[2]).c_str(), true);
     mqtt_client.publish((mqtt_base_topic+powerC3_topic).c_str(), String(power[2]).c_str(), true);
+    mqtt_client.publish((mqtt_base_topic+rawmaxC3_topic).c_str(), String(rawmax[2]).c_str(), true);
     
     mqtt_client.publish((mqtt_base_topic+online_topic).c_str(), "Testing", true);
     
-    
+    // aux
+    mqtt_client.publish((mqtt_base_topic+aux1_topic).c_str(), String(aux1).c_str(), true);
+    mqtt_client.publish((mqtt_base_topic+aux2_topic).c_str(), String(aux2).c_str(), true);
   }
 
   if (dbgCall) {
