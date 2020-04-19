@@ -7,7 +7,7 @@
 #include <Adafruit_ADS1015.h>
 
 #define ledinbuilt 02
-#define VERSION "1.1.4"
+#define VERSION "1.1.5"
 
 Adafruit_ADS1115 ads1(0x48);
 Adafruit_ADS1115 ads2(0x49);
