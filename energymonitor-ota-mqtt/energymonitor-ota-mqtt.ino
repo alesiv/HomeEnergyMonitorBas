@@ -8,10 +8,10 @@
 #include <U8g2lib.h>
 
 #define ledinbuilt 02
-#define VERSION "1.1.6"
+#define VERSION "1.1.7"
 
 // Initialize display
-U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
+U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R3, /* reset=*/ U8X8_PIN_NONE);
 
 Adafruit_ADS1115 ads1(0x48);
 Adafruit_ADS1115 ads2(0x49);
@@ -106,8 +106,11 @@ void setup() {
 
   u8g2.firstPage();
   do {
-    u8g2.setFont(u8g2_font_ncenB08_tr);
-    u8g2.drawStr(0,24,"Home Energy Monitor");
+    u8g2.setFontPosTop();
+    u8g2.setFont(u8g2_font_ncenB14_tr);
+    u8g2.drawStr(0,0,"Home");
+    u8g2.drawStr(0,30,"Energy");
+    u8g2.drawStr(0,60,"Monitor");
   } while ( u8g2.nextPage() );
 
   setup_wifi();
@@ -201,20 +204,22 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 unsigned long ledTimeControlNow = 0;
 unsigned long ledTimeControlLast = 0;
-long now = 0; //in ms
-long lastMsg = 0;
+unsigned long PublicTimeControlNow = 0;
+unsigned long PublicTimeControlLast = 0;
 float voltagePeak[3];
 float voltageRMS[3];
 float currentRMS[3];
 float power[3];
 float rawmax[3];
-int min_timeout = 5000; //in ms
+int timeoutLed = 1000; //in ms
+int timeoutPublic = 2000; //in ms
 long tiempo;
 long rawAdc;
 long minRaw;
 long maxRaw;
 long aux1;
 long aux2;
+String strDisplay;
 
 
 void loop() {
@@ -227,7 +232,7 @@ void loop() {
   mqtt_client.loop();
 
   ledTimeControlNow = millis();
-  if (ledTimeControlNow - ledTimeControlLast > 1000) {
+  if (ledTimeControlNow - ledTimeControlLast > timeoutLed) {
     ledTimeControlLast = ledTimeControlNow;
 
     digitalWrite(ledinbuilt, LOW);  // Turn on the LED for showing alive
@@ -236,8 +241,16 @@ void loop() {
 
     u8g2.firstPage();
     do {
-      u8g2.setFont(u8g2_font_ncenB08_tr);
-      u8g2.drawStr(0,50,String(ledTimeControlNow).c_str());
+      u8g2.setFontPosTop();
+      u8g2.setFont(u8g2_font_lubB08_tr);
+      u8g2.drawStr(0, 0, "1");
+      u8g2.drawStr(0, 40, "2");
+      u8g2.drawStr(0, 80, "3");
+      u8g2.setFont(u8g2_font_lubB14_tr);
+      u8g2.drawStr(10, 10, String(power[0]).c_str());
+      u8g2.drawStr(10, 50, String(power[1]).c_str());
+      u8g2.drawStr(10, 90, String(power[2]).c_str());
+      
   } while ( u8g2.nextPage() );
   }
 
@@ -246,9 +259,6 @@ void loop() {
   
   // ADC adquisition Channel 1
   tiempo = millis();
-  aux1 = micros();
-  
-  aux2 = micros();
   rawAdc = ads1.readADC_Differential_0_1();
   minRaw = rawAdc;
   maxRaw = rawAdc;
@@ -305,12 +315,10 @@ void loop() {
   power[2] = currentRMS[2] * 0.230;                     // Power (W)
 
   // public MQTT
-  now = millis();
-  if (now - lastMsg > min_timeout) {
-    lastMsg = now;
-    now = millis();
-  
-
+  PublicTimeControlNow = millis();
+  if (PublicTimeControlNow - PublicTimeControlLast > timeoutPublic) {
+    PublicTimeControlLast = PublicTimeControlNow;
+    
     // Channel 1
     mqtt_client.publish((mqtt_base_topic+voltageC1_topic).c_str(), String(voltagePeak[0]).c_str(), true);
     mqtt_client.publish((mqtt_base_topic+currentC1_topic).c_str(), String(currentRMS[0]).c_str(), true);
