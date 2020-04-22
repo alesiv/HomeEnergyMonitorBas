@@ -10,3 +10,5 @@ Aplicación básica de monitorización de energía doméstico.
 08/08/2019  rev1.0.3    Se añade lectura de versión por MQTT
 10/04/2020  rev1.1.0    Se añade la adquisición de 3 canales. Y se publican por MQTT las medidas de los 3 canales
 15/04/2020  rev1.1.4    Versión estable para 3 canales. Envío de medidas de depuración. Medidas cada 5 segundos
+20/04/2020  rev1.1.5    Versión estable para 3 canales. Con adquisición simple de las medidas.
+22/04/2020  rev1.1.6    Se añade control de display
