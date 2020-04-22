@@ -5,9 +5,13 @@
 #include <ArduinoOTA.h>   //For OTA
 #include <Wire.h>        
 #include <Adafruit_ADS1015.h>
+#include <U8g2lib.h>
 
 #define ledinbuilt 02
 #define VERSION "1.1.6"
+
+// Initialize display
+U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
 
 Adafruit_ADS1115 ads1(0x48);
 Adafruit_ADS1115 ads2(0x49);
@@ -96,7 +100,16 @@ void setup() {
   Serial.println("\r\n\nBooting...");
 
   pinMode(ledinbuilt, OUTPUT);     // Initialize the BUILTIN_LED pin as an output
-  
+
+  // Setup display
+  u8g2.begin();
+
+  u8g2.firstPage();
+  do {
+    u8g2.setFont(u8g2_font_ncenB08_tr);
+    u8g2.drawStr(0,24,"Home Energy Monitor");
+  } while ( u8g2.nextPage() );
+
   setup_wifi();
 
   Serial.print("Configuring OTA device...");
@@ -214,12 +227,18 @@ void loop() {
   mqtt_client.loop();
 
   ledTimeControlNow = millis();
-  if (ledTimeControlNow - ledTimeControlLast > 2000) {
+  if (ledTimeControlNow - ledTimeControlLast > 1000) {
     ledTimeControlLast = ledTimeControlNow;
 
     digitalWrite(ledinbuilt, LOW);  // Turn on the LED for showing alive
     delay(200);
     digitalWrite(ledinbuilt, HIGH);  // Turn off the LED
+
+    u8g2.firstPage();
+    do {
+      u8g2.setFont(u8g2_font_ncenB08_tr);
+      u8g2.drawStr(0,50,String(ledTimeControlNow).c_str());
+  } while ( u8g2.nextPage() );
   }
 
   
