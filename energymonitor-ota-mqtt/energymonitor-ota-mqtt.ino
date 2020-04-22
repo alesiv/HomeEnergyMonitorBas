@@ -7,13 +7,13 @@
 #include <Adafruit_ADS1015.h>
 
 #define ledinbuilt 02
-#define VERSION "1.1.5"
+#define VERSION "1.1.6"
 
 Adafruit_ADS1115 ads1(0x48);
 Adafruit_ADS1115 ads2(0x49);
 //const float multiplier = 0.1875F;
 const float multiplier = 0.0625F;
-const float FACTOR = 30; //30A/1V
+const float FACTOR = 30; // 30A/1V
 
 //WIFI configuration
 #define wifi_ssid "stantonamarlberg"
@@ -40,6 +40,7 @@ String mqtt_base_topic="/energymon/data";
 #define rawmaxC3_topic "/rawmaxC3"
 #define aux1_topic "/aux1"
 #define aux2_topic "/aux2"
+#define measure_topic "/measure"
 #define led_topic "/led"
 #define online_topic "/online"
 #define version_topic "/version"
@@ -126,6 +127,9 @@ void setup() {
   Serial.println("Setup completed! Running app...");
 
   setup_adc();
+
+  dbgCall = 1;
+  dbgMsg = "Test measure...";
 }
 
 
@@ -182,6 +186,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 // Global variables
 
+unsigned long ledTimeControlNow = 0;
+unsigned long ledTimeControlLast = 0;
 long now = 0; //in ms
 long lastMsg = 0;
 float voltagePeak[3];
@@ -189,7 +195,7 @@ float voltageRMS[3];
 float currentRMS[3];
 float power[3];
 float rawmax[3];
-int min_timeout=5000; //in ms
+int min_timeout = 5000; //in ms
 long tiempo;
 long rawAdc;
 long minRaw;
@@ -199,11 +205,7 @@ long aux2;
 
 
 void loop() {
-  //int16_t adc0[1000]; //, adc1, adc2, adc3;
-  //int16_t i;
-  //unsigned long tiempo1, tiempo2, tiempo3;
 
-  
   ArduinoOTA.handle();
   
   if (!mqtt_client.connected()) {
@@ -211,11 +213,24 @@ void loop() {
   }
   mqtt_client.loop();
 
+  ledTimeControlNow = millis();
+  if (ledTimeControlNow - ledTimeControlLast > 2000) {
+    ledTimeControlLast = ledTimeControlNow;
+
+    digitalWrite(ledinbuilt, LOW);  // Turn on the LED for showing alive
+    delay(200);
+    digitalWrite(ledinbuilt, HIGH);  // Turn off the LED
+  }
+
+  
+  // Programa principal
+  
   // ADC adquisition Channel 1
   tiempo = millis();
-  aux1 = millis();
+  aux1 = micros();
+  
+  aux2 = micros();
   rawAdc = ads1.readADC_Differential_0_1();
-  aux2 = millis();
   minRaw = rawAdc;
   maxRaw = rawAdc;
   while (millis() - tiempo < 1000)
@@ -275,18 +290,7 @@ void loop() {
   if (now - lastMsg > min_timeout) {
     lastMsg = now;
     now = millis();
-    
-    //voltage = ads.readADC_Differential_0_1() * multiplier;
-    //current = voltage * FACTOR / 1000.0;
-    //power = currentRMS * 230.0;
-
-    /*Serial.printf("maxRaw = %d    minRaw = %d", maxRaw, minRaw);
-    Serial.print("\r\nSent ");
-    Serial.print(String(power).c_str());
-    Serial.println(" to "+mqtt_base_topic+power_topic);
-    Serial.print("Sent ");
-    Serial.print(String(currentRMS).c_str());
-    Serial.println(" to "+mqtt_base_topic+current_topic);*/
+  
 
     // Channel 1
     mqtt_client.publish((mqtt_base_topic+voltageC1_topic).c_str(), String(voltagePeak[0]).c_str(), true);
@@ -304,7 +308,7 @@ void loop() {
     mqtt_client.publish((mqtt_base_topic+powerC3_topic).c_str(), String(power[2]).c_str(), true);
     mqtt_client.publish((mqtt_base_topic+rawmaxC3_topic).c_str(), String(rawmax[2]).c_str(), true);
     
-    mqtt_client.publish((mqtt_base_topic+online_topic).c_str(), "Testing", true);
+    mqtt_client.publish((mqtt_base_topic+online_topic).c_str(), "Online", true);
     
     // aux
     mqtt_client.publish((mqtt_base_topic+aux1_topic).c_str(), String(aux1).c_str(), true);
@@ -317,3 +321,5 @@ void loop() {
   }
   
 }
+
+
