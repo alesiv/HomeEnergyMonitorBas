@@ -8,7 +8,7 @@
 #include <U8g2lib.h>
 
 #define ledinbuilt 02
-#define VERSION "1.1.7"
+#define VERSION "1.1.8"
 
 // Initialize display
 U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R3, /* reset=*/ U8X8_PIN_NONE);
@@ -236,22 +236,27 @@ void loop() {
     ledTimeControlLast = ledTimeControlNow;
 
     digitalWrite(ledinbuilt, LOW);  // Turn on the LED for showing alive
-    delay(200);
+    delay(100);
     digitalWrite(ledinbuilt, HIGH);  // Turn off the LED
 
+    // Refresh display with measures
     u8g2.firstPage();
     do {
       u8g2.setFontPosTop();
       u8g2.setFont(u8g2_font_lubB08_tr);
       u8g2.drawStr(0, 0, "1");
-      u8g2.drawStr(0, 40, "2");
-      u8g2.drawStr(0, 80, "3");
+      u8g2.drawStr(0, 42, "2");
+      u8g2.drawStr(0, 84, "3");
       u8g2.setFont(u8g2_font_lubB14_tr);
-      u8g2.drawStr(10, 10, String(power[0]).c_str());
-      u8g2.drawStr(10, 50, String(power[1]).c_str());
-      u8g2.drawStr(10, 90, String(power[2]).c_str());
+      u8g2.drawStr(10, 22, String(power[0]).c_str());
+      u8g2.drawStr(10, 64, String(power[1]).c_str());
+      u8g2.drawStr(10, 110, String(power[2]).c_str());
+      u8g2.setFont(u8g2_font_lubB14_tr);
+      u8g2.drawStr(10, 02, String(power[0]).c_str());
+      u8g2.drawStr(10, 44, String(power[1]).c_str());
+      u8g2.drawStr(10, 86, String(power[2]).c_str());
       
-  } while ( u8g2.nextPage() );
+    } while ( u8g2.nextPage() );
   }
 
   
